@@ -16,7 +16,6 @@ Comments        : The blockchain implementation is mostly based on [1].
 References      : [1] https://github.com/dvf/blockchain/blob/master/blockchain.py
                   [2] https://github.com/julienr/ipynb_playground/blob/master/bitcoin/dumbcoin/dumbcoin.ipynb
 '''
-
 from collections import OrderedDict
 
 import binascii
@@ -39,7 +38,7 @@ from flask_cors import CORS
 
 
 
-MINING_SENDER = "THE BLOCKCHAIN"
+MINING_SENDER = "THE MINER"
 MINING_REWARD = 1
 MINING_DIFFICULTY = 2
 
