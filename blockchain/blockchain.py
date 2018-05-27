@@ -18,30 +18,22 @@ References      : [1] https://github.com/dvf/blockchain/blob/master/blockchain.p
 '''
 from collections import OrderedDict
 
-import binascii
-
-import Crypto
-import Crypto.Random
-from Crypto.Hash import SHA
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
-
-import hashlib
-import json
 from time import time
 from urllib.parse import urlparse
 from uuid import uuid4
-
-import requests
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
+from ecdsa import VerifyingKey
 
-
+import ecdsa
+import binascii
+import hashlib
+import json
+import requests
 
 MINING_SENDER = "THE MINER"
 MINING_REWARD = 1
 MINING_DIFFICULTY = 2
-
 
 class Blockchain:
 
@@ -54,7 +46,6 @@ class Blockchain:
         self.node_id = str(uuid4()).replace('-', '')
         #Create genesis block
         self.create_block(0, '00')
-
 
     def register_node(self, node_url):
         """
@@ -70,17 +61,13 @@ class Blockchain:
         else:
             raise ValueError('Invalid URL')
 
-
     def verify_transaction_signature(self, sender_address, signature, transaction):
         """
         Check that the provided signature corresponds to transaction
         signed by the public key (sender_address)
         """
-        public_key = RSA.importKey(binascii.unhexlify(sender_address))
-        verifier = PKCS1_v1_5.new(public_key)
-        h = SHA.new(str(transaction).encode('utf8'))
-        return verifier.verify(h, binascii.unhexlify(signature))
-
+        vk = VerifyingKey.from_string(bytes.fromhex(sender_address),curve=ecdsa.SECP256k1)
+        return vk.verify(binascii.unhexlify(signature), str(transaction).encode('utf-8'))   
 
     def submit_transaction(self, sender_address, recipient_address, value, signature):
         """
@@ -89,7 +76,6 @@ class Blockchain:
         transaction = OrderedDict({'sender_address': sender_address, 
                                     'recipient_address': recipient_address,
                                     'value': value})
-
         #Reward for mining a block
         if sender_address == MINING_SENDER:
             self.transactions.append(transaction)
@@ -102,8 +88,7 @@ class Blockchain:
                 return len(self.chain) + 1
             else:
                 return False
-
-
+    
     def create_block(self, nonce, previous_hash):
         """
         Add a block of transactions to the blockchain
@@ -120,7 +105,6 @@ class Blockchain:
         self.chain.append(block)
         return block
 
-
     def hash(self, block):
         """
         Create a SHA-256 hash of a block
@@ -128,8 +112,7 @@ class Blockchain:
         # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
         block_string = json.dumps(block, sort_keys=True).encode()
         
-        return hashlib.sha256(block_string).hexdigest()
-
+        return hashlib.sha256(hashlib.sha256(block_string).hexdigest().encode()).hexdigest()
 
     def proof_of_work(self):
         """
@@ -144,15 +127,13 @@ class Blockchain:
 
         return nonce
 
-
     def valid_proof(self, transactions, last_hash, nonce, difficulty=MINING_DIFFICULTY):
         """
         Check if a hash value satisfies the mining conditions. This function is used within the proof_of_work function.
         """
-        guess = (str(transactions)+str(last_hash)+str(nonce)).encode()
-        guess_hash = hashlib.sha256(guess).hexdigest()
+        guess = str(transactions)+str(last_hash)+str(nonce)
+        guess_hash = hashlib.sha256(hashlib.sha256(guess.encode()).hexdigest().encode()).hexdigest()
         return guess_hash[:difficulty] == '0'*difficulty
-
 
     def valid_chain(self, chain):
         """
@@ -232,8 +213,6 @@ def index():
 def configure():
     return render_template('./configure.html')
 
-
-
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
     values = request.form
@@ -290,8 +269,6 @@ def mine():
     }
     return jsonify(response), 200
 
-
-
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
     values = request.form
@@ -309,7 +286,6 @@ def register_nodes():
     }
     return jsonify(response), 201
 
-
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
     replaced = blockchain.resolve_conflicts()
@@ -326,29 +302,16 @@ def consensus():
         }
     return jsonify(response), 200
 
-
 @app.route('/nodes/get', methods=['GET'])
 def get_nodes():
     nodes = list(blockchain.nodes)
     response = {'nodes': nodes}
     return jsonify(response), 200
 
-
-
 if __name__ == '__main__':
     from argparse import ArgumentParser
-
     parser = ArgumentParser()
     parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     args = parser.parse_args()
     port = args.port
-
     app.run(host='127.0.0.1', port=port)
-
-
-
-
-
-
-
-
